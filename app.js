@@ -69,6 +69,7 @@ const elements = {
   marketCapReference: document.querySelector("#marketCapReference"),
   fdvReference: document.querySelector("#fdvReference"),
   combinedChart: document.querySelector("#combinedChart"),
+  priceChart: document.querySelector("#priceChart"),
   timeframeRow: document.querySelector("#timeframeRow"),
 };
 
@@ -230,6 +231,11 @@ function renderDashboard() {
     swpeValue: current.swpe,
     meanValue: visibleMean,
     revenueValue: current.revenueEma30,
+  });
+
+  renderPriceChart(elements.priceChart, {
+    data: visibleSeries,
+    priceValue: current.price,
   });
 }
 
@@ -423,6 +429,96 @@ function renderDualAxisChart(container, options) {
     toLeftY,
     toRightY,
     meanValue: options.meanValue,
+  });
+}
+
+function renderPriceChart(container, options) {
+  const data = options.data.filter((row) => Number.isFinite(row.price));
+  const width = container.clientWidth || 1000;
+  const height = container.clientHeight || 320;
+  const padding = { top: 56, right: 28, bottom: 42, left: 72 };
+  const innerWidth = width - padding.left - padding.right;
+  const innerHeight = height - padding.top - padding.bottom;
+  const tickCount = 5;
+
+  if (!data.length) {
+    container.innerHTML = "";
+    return;
+  }
+
+  const priceValues = data.map((row) => row.price);
+  const priceMin = Math.max(0, Math.min(...priceValues) - ((Math.max(...priceValues) - Math.min(...priceValues) || 1) * 0.08));
+  const priceMax = Math.max(...priceValues) + ((Math.max(...priceValues) - Math.min(...priceValues) || 1) * 0.12);
+
+  const xPoints = data.map((row, index) => {
+    const x = padding.left + (index / Math.max(data.length - 1, 1)) * innerWidth;
+    return { x, row };
+  });
+
+  const toY = (value) => padding.top + ((priceMax - value) / Math.max(priceMax - priceMin, 1)) * innerHeight;
+  const pricePolyline = xPoints
+    .map((point) => `${point.x.toFixed(2)},${toY(point.row.price).toFixed(2)}`)
+    .join(" ");
+
+  const leftTicks = Array.from({ length: tickCount }, (_, index) => {
+    const ratio = index / (tickCount - 1);
+    const value = priceMax - ((priceMax - priceMin) * ratio);
+    const y = padding.top + innerHeight * ratio;
+    return { value, y };
+  });
+
+  const labelCount = Math.min(6, data.length);
+  const xLabels = Array.from({ length: labelCount }, (_, index) => {
+    const pointIndex = Math.round((index / Math.max(labelCount - 1, 1)) * (data.length - 1));
+    const row = data[pointIndex];
+    const x = padding.left + (pointIndex / Math.max(data.length - 1, 1)) * innerWidth;
+    return {
+      x,
+      label: formatDateLabel(row.date),
+    };
+  });
+
+  container.innerHTML = `
+    <div class="chart-legend">
+      <span class="legend-pill"><span class="legend-line" style="background:#8cf6c8"></span>HYPE price</span>
+    </div>
+    <div class="chart-badge">
+      <span>Price ${formatCurrency(options.priceValue)}</span>
+    </div>
+    <svg class="chart-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-label="HYPE price chart">
+      ${leftTicks.map((tick) => `
+        <line x1="${padding.left}" y1="${tick.y}" x2="${width - padding.right}" y2="${tick.y}" stroke="rgba(255,255,255,0.08)" stroke-dasharray="4 8" />
+        <text x="${padding.left - 12}" y="${tick.y + 4}" text-anchor="end" class="tick-label">${escapeHtml(formatCurrency(tick.value))}</text>
+      `).join("")}
+
+      ${xLabels.map((tick) => `
+        <text x="${tick.x}" y="${height - 16}" text-anchor="middle" class="tick-label">${tick.label}</text>
+      `).join("")}
+
+      <text x="${padding.left}" y="24" text-anchor="start" class="axis-label">HYPE Price</text>
+
+      <polyline class="series-line" points="${pricePolyline}" stroke="#8cf6c8" stroke-width="2.1"></polyline>
+
+      ${xPoints.map((point) => `
+        <circle cx="${point.x}" cy="${toY(point.row.price)}" r="1.15" fill="#8cf6c8" opacity="0.86"></circle>
+      `).join("")}
+
+      <line id="priceHoverXGuide" class="hover-line" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${height - padding.bottom}" visibility="hidden"></line>
+      <circle id="priceHoverDot" class="hover-dot" cx="${padding.left}" cy="${padding.top}" r="4.5" fill="#8cf6c8" visibility="hidden"></circle>
+
+      <circle cx="${xPoints.at(-1)?.x ?? 0}" cy="${toY(xPoints.at(-1)?.row.price ?? 0)}" r="5" fill="#8cf6c8" stroke="#080c17" stroke-width="3"></circle>
+      <rect id="priceHoverOverlay" x="${padding.left}" y="${padding.top}" width="${innerWidth}" height="${innerHeight}" fill="transparent"></rect>
+    </svg>
+    <div id="priceChartTooltip" class="chart-tooltip">
+      <div class="tooltip-date"></div>
+      <div class="tooltip-row"><span>Price</span><strong id="tooltipPrice">-</strong></div>
+    </div>
+  `;
+
+  attachPriceChartTooltip(container, {
+    data,
+    xPoints,
+    toY,
   });
 }
 
@@ -894,16 +990,7 @@ function attachChartTooltip(container, context) {
     tooltipRevenue.textContent = formatCompactCurrency(point.row.revenueEma30);
 
     tooltip.classList.add("is-visible");
-    const tooltipWidth = tooltip.offsetWidth || 188;
-    const tooltipHeight = tooltip.offsetHeight || 96;
-    const halfWidth = tooltipWidth / 2;
-    const desiredLeft = x;
-    const desiredTop = Math.min(swpeY, revenueY) - 6;
-    const clampedLeft = Math.max(halfWidth + 12, Math.min(container.clientWidth - halfWidth - 12, desiredLeft));
-    const clampedTop = Math.max(tooltipHeight + 20, Math.min(container.clientHeight - 12, desiredTop));
-
-    tooltip.style.left = `${clampedLeft}px`;
-    tooltip.style.top = `${clampedTop}px`;
+    positionTooltip(container, tooltip, x, Math.min(swpeY, revenueY) - 6);
   };
 
   overlay.addEventListener("mousemove", (event) => {
@@ -927,6 +1014,83 @@ function attachChartTooltip(container, context) {
     showAtIndex(index);
   }, { passive: true });
   overlay.addEventListener("touchend", hide);
+}
+
+function attachPriceChartTooltip(container, context) {
+  const overlay = container.querySelector("#priceHoverOverlay");
+  const xGuide = container.querySelector("#priceHoverXGuide");
+  const priceDot = container.querySelector("#priceHoverDot");
+  const tooltip = container.querySelector("#priceChartTooltip");
+  const tooltipDate = tooltip?.querySelector(".tooltip-date");
+  const tooltipPrice = container.querySelector("#tooltipPrice");
+
+  if (!overlay || !tooltip || !tooltipDate || !tooltipPrice) {
+    return;
+  }
+
+  const hide = () => {
+    tooltip.classList.remove("is-visible");
+    xGuide?.setAttribute("visibility", "hidden");
+    priceDot?.setAttribute("visibility", "hidden");
+  };
+
+  const showAtIndex = (index) => {
+    const point = context.xPoints[index];
+    if (!point) {
+      hide();
+      return;
+    }
+
+    const x = point.x;
+    const y = context.toY(point.row.price);
+
+    xGuide?.setAttribute("x1", String(x));
+    xGuide?.setAttribute("x2", String(x));
+    xGuide?.setAttribute("visibility", "visible");
+
+    priceDot?.setAttribute("cx", String(x));
+    priceDot?.setAttribute("cy", String(y));
+    priceDot?.setAttribute("visibility", "visible");
+
+    tooltipDate.textContent = formatHoverDate(point.row.date);
+    tooltipPrice.textContent = formatCurrency(point.row.price);
+
+    tooltip.classList.add("is-visible");
+    positionTooltip(container, tooltip, x, y - 6);
+  };
+
+  overlay.addEventListener("mousemove", (event) => {
+    const rect = overlay.getBoundingClientRect();
+    const localX = event.clientX - rect.left;
+    const ratio = Math.max(0, Math.min(1, localX / rect.width));
+    const index = Math.round(ratio * Math.max(context.data.length - 1, 0));
+    showAtIndex(index);
+  });
+
+  overlay.addEventListener("mouseleave", hide);
+  overlay.addEventListener("touchstart", (event) => {
+    const touch = event.touches[0];
+    if (!touch) {
+      return;
+    }
+    const rect = overlay.getBoundingClientRect();
+    const localX = touch.clientX - rect.left;
+    const ratio = Math.max(0, Math.min(1, localX / rect.width));
+    const index = Math.round(ratio * Math.max(context.data.length - 1, 0));
+    showAtIndex(index);
+  }, { passive: true });
+  overlay.addEventListener("touchend", hide);
+}
+
+function positionTooltip(container, tooltip, desiredLeft, desiredTop) {
+  const tooltipWidth = tooltip.offsetWidth || 188;
+  const tooltipHeight = tooltip.offsetHeight || 96;
+  const halfWidth = tooltipWidth / 2;
+  const clampedLeft = Math.max(halfWidth + 12, Math.min(container.clientWidth - halfWidth - 12, desiredLeft));
+  const clampedTop = Math.max(tooltipHeight + 20, Math.min(container.clientHeight - 12, desiredTop));
+
+  tooltip.style.left = `${clampedLeft}px`;
+  tooltip.style.top = `${clampedTop}px`;
 }
 
 function formatSupplyMode(mode) {
