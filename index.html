@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HYPE SWPE Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="hero">
+      <div class="hero-copy panel">
+        <p class="eyebrow">HYPE / Supply-Weighted P-E</p>
+        <h1>SWPE dashboard for Hyperliquid</h1>
+        <p class="hero-text">
+          SWPE compares HYPE's supply-adjusted market cap to protocol earnings that are used for buybacks.
+          Lower values suggest stronger buyback demand relative to float and can support the case for undervaluation.
+        </p>
+        <div class="formula-strip">
+          <span>SWPE = selected supply x price / (30d EMA buyback revenue x 365)</span>
+        </div>
+      </div>
+
+      <aside class="hero-stats">
+        <article class="kpi panel accent-pink">
+          <span class="kpi-label">Current SWPE</span>
+          <strong id="currentSwpe">-</strong>
+          <small id="currentSwpeMeta">Using demo data</small>
+        </article>
+        <article class="kpi panel accent-cyan">
+          <span class="kpi-label">Mean SWPE</span>
+          <strong id="currentMeanSwpe">-</strong>
+          <small id="meanSwpeMeta">Flat full-series average</small>
+        </article>
+        <article class="kpi panel accent-gold">
+          <span class="kpi-label">Revenue 30d EMA</span>
+          <strong id="currentRevenue">-</strong>
+          <small id="currentRevenueMeta">Buyback-eligible daily revenue</small>
+        </article>
+        <article class="kpi panel">
+          <span class="kpi-label">Supply Mode</span>
+          <strong id="supplyModeLabel">Ready-for-Sale</strong>
+          <small id="supplyModeMeta">Circulating minus staked HYPE</small>
+        </article>
+      </aside>
+    </header>
+
+    <section class="controls panel">
+      <div class="controls-header">
+        <div>
+          <p class="eyebrow">Inputs</p>
+          <h2>Free-data workflow</h2>
+        </div>
+        <p class="supporting-copy">
+          The live view now prefers free sources: DefiLlama for daily holders revenue, CoinGecko for price and supply,
+          Hyperliquid for total staked, and Hypurrscan for the unstaking queue. You can still override the history with your own CSV.
+        </p>
+      </div>
+
+      <div class="control-grid">
+        <label class="field">
+          <span>Supply basis</span>
+          <select id="supplyMode">
+            <option value="ready" selected>Ready-for-Sale</option>
+            <option value="circulating">Circulating</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Current HYPE price</span>
+          <input id="currentPrice" type="number" min="0" step="0.01">
+        </label>
+
+        <label class="field">
+          <span>Circulating supply</span>
+          <input id="circulatingSupply" type="number" min="0" step="1">
+        </label>
+
+        <label class="field">
+          <span>Total supply</span>
+          <input id="totalSupply" type="number" min="0" step="1">
+        </label>
+
+        <label class="field">
+          <span>Default staked %</span>
+          <input id="defaultStakedPct" type="number" min="0" max="100" step="0.1">
+        </label>
+
+        <label class="field">
+          <span>Buyback share</span>
+          <input id="buybackShare" type="number" min="0" max="1" step="0.01">
+        </label>
+
+        <label class="field">
+          <span>CoinGecko demo API key</span>
+          <input id="coingeckoApiKey" type="password" autocomplete="off" placeholder="Optional for live refresh">
+        </label>
+
+        <label class="field">
+          <span>Auto-refresh market inputs</span>
+          <select id="autoRefreshMode">
+            <option value="enabled">Enabled on page load</option>
+            <option value="disabled">Disabled</option>
+          </select>
+        </label>
+
+        <label class="field field-file">
+          <span>Historical CSV</span>
+          <input id="csvFile" type="file" accept=".csv,text/csv">
+        </label>
+      </div>
+
+      <div class="button-row">
+        <button id="reloadButton" class="button-primary" type="button">Recalculate dashboard</button>
+        <button id="refreshMarketButton" class="button-secondary" type="button">Fetch latest free sources</button>
+        <button id="demoButton" class="button-secondary" type="button">Reset to demo data</button>
+      </div>
+
+      <div class="source-strip">
+        <div class="source-pill">
+          <span class="pill-label">Series source</span>
+          <strong id="sourceLabel">Built-in demo dataset</strong>
+        </div>
+        <div class="source-pill">
+          <span class="pill-label">Market snapshot</span>
+          <strong id="marketSnapshotLabel">CoinGecko defaults from April 7, 2026</strong>
+        </div>
+        <div class="source-pill">
+          <span class="pill-label">Rows loaded</span>
+          <strong id="rowCount">0</strong>
+        </div>
+        <div class="source-pill">
+          <span class="pill-label">Accepted CSV columns</span>
+          <strong>date, buybacks or revenue, circulating_supply_native, optional staked_hype</strong>
+        </div>
+        <div class="source-pill">
+          <span class="pill-label">CoinGecko market cap</span>
+          <strong id="marketCapReference">-</strong>
+        </div>
+        <div class="source-pill">
+          <span class="pill-label">FDV reference</span>
+          <strong id="fdvReference">-</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="chart-grid">
+      <article class="chart-card panel">
+        <div class="chart-header">
+          <div>
+            <p class="eyebrow">Combined View</p>
+            <h3>SWPE, mean SWPE, and revenue</h3>
+          </div>
+          <div class="chart-header-controls">
+            <p class="chart-summary">Daily observations with straight line segments. Left axis is SWPE and mean SWPE. Right axis is 30d EMA Hyperliquid revenue.</p>
+            <div class="timeframe-row" id="timeframeRow">
+              <button class="timeframe-button" type="button" data-range="7d">7d</button>
+              <button class="timeframe-button" type="button" data-range="14d">14d</button>
+              <button class="timeframe-button" type="button" data-range="30d">30d</button>
+              <button class="timeframe-button" type="button" data-range="60d">60d</button>
+              <button class="timeframe-button is-active" type="button" data-range="180d">180d</button>
+              <button class="timeframe-button" type="button" data-range="1y">1y</button>
+            </div>
+          </div>
+        </div>
+        <div id="combinedChart" class="chart-frame"></div>
+      </article>
+    </section>
+
+    <section class="methodology-grid">
+      <article class="panel methodology-card">
+        <p class="eyebrow">Method</p>
+        <h3>How the calculation works</h3>
+        <ul class="method-list">
+          <li><strong>Ready-for-Sale supply</strong> = circulating supply minus staked HYPE.</li>
+          <li><strong>Current circulating staked HYPE</strong> = total staked minus the unstaking queue minus live delegated stake at the HyperLabs and Foundation excluded wallets.</li>
+          <li><strong>Buyback revenue</strong> uses DefiLlama daily holders revenue for the live series, then falls back to CSV <code>buybacks</code>, <code>buyback_fee_allocation</code>, or <code>revenue</code>.</li>
+          <li><strong>SWPE</strong> uses 30d EMA daily revenue annualized by multiplying by 365.</li>
+          <li><strong>Mean SWPE</strong> is the selected timeframe average of SWPE shown as a flat reference line.</li>
+        </ul>
+      </article>
+
+      <article class="panel methodology-card">
+        <p class="eyebrow">Source Notes</p>
+        <h3>Practical free / cheap stack</h3>
+        <ul class="method-list">
+          <li><strong>CoinGecko Demo API</strong> for live price and supply refreshes on each page load or button click.</li>
+          <li><strong>DefiLlama</strong> for free Hyperliquid revenue and holders-revenue series.</li>
+          <li><strong>Hyperliquid official API</strong> for validator summaries and the network-wide total staked number.</li>
+          <li><strong>Hypurrscan</strong> for the public unstaking queue and staking cross-checks.</li>
+        </ul>
+      </article>
+    </section>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
