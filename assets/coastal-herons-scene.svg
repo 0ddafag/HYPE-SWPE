@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Coastal Herons Scene</title>
+  <desc id="desc">A bright lake scene with blue sky, cream clouds, pink herons, and green land.</desc>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2fa7ea"/>
+      <stop offset="43%" stop-color="#8ed4f6"/>
+      <stop offset="70%" stop-color="#dff1fb"/>
+      <stop offset="100%" stop-color="#fff8ef"/>
+    </linearGradient>
+    <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#167cc6"/>
+      <stop offset="100%" stop-color="#2f98d4"/>
+    </linearGradient>
+    <linearGradient id="shore" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#cddf92"/>
+      <stop offset="100%" stop-color="#8eb86c"/>
+    </linearGradient>
+    <filter id="grain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="1" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feComponentTransfer>
+        <feFuncA type="table" tableValues="0 0.035"/>
+      </feComponentTransfer>
+    </filter>
+    <style>
+      .ink { stroke: #20344d; stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
+      .bird { fill: #ec6cb6; }
+      .bird-soft { fill: #f4a8d3; }
+      .bird-shadow { fill: #c94c96; }
+      .skim { stroke: rgba(26, 76, 118, 0.42); stroke-width: 2; stroke-linecap: round; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="900" fill="url(#sky)"/>
+  <rect y="250" width="1600" height="330" fill="url(#water)"/>
+
+  <path d="M0 128 C126 101 233 124 347 116 C490 106 620 64 735 85 C874 110 968 87 1092 99 C1222 111 1301 83 1428 94 C1505 100 1559 119 1600 111 L1600 202 L0 202 Z" fill="#f8efb6" class="ink"/>
+  <path d="M0 191 C154 183 223 198 333 188 C451 177 558 191 683 180 C835 167 950 196 1078 185 C1228 172 1365 192 1600 174 L1600 226 L0 226 Z" fill="#fff7cf" opacity="0.94"/>
+
+  <path d="M1254 407 C1344 383 1459 371 1600 381 L1600 575 C1493 600 1414 612 1331 594 C1260 578 1211 542 1180 494 C1160 464 1185 423 1254 407 Z" fill="url(#shore)" class="ink"/>
+  <path d="M1116 437 C1160 422 1217 425 1266 434 C1205 451 1176 474 1157 500 C1123 492 1101 470 1116 437 Z" fill="#bcd67c" opacity="0.9"/>
+
+  <g opacity="0.9">
+    <path class="bird ink" d="M221 288 C257 253 295 245 344 258 C319 272 296 282 279 300 C316 306 352 322 375 346 C327 342 288 331 250 314 C225 321 203 336 180 357 C184 327 196 304 221 288 Z"/>
+    <path class="bird-soft ink" d="M363 343 C398 312 436 302 486 311 C458 325 434 336 418 356 C454 365 485 382 511 404 C460 401 424 389 388 371 C365 379 343 395 322 416 C325 387 339 364 363 343 Z"/>
+    <path class="bird ink" d="M555 250 C595 212 640 202 692 219 C663 233 637 247 620 269 C661 274 700 292 725 317 C671 313 630 301 591 285 C567 295 542 313 517 336 C522 301 535 274 555 250 Z"/>
+    <path class="bird ink" d="M718 172 C758 136 802 127 855 145 C826 160 798 174 780 196 C821 203 864 221 889 248 C836 243 794 232 755 215 C729 224 707 244 682 264 C687 229 700 199 718 172 Z"/>
+    <path class="bird-soft ink" d="M902 274 C944 239 993 231 1042 247 C1016 260 987 275 970 295 C1009 302 1047 319 1070 344 C1020 339 980 326 942 311 C919 320 895 337 874 358 C878 329 889 301 902 274 Z"/>
+    <path class="bird ink" d="M1081 206 C1122 171 1163 161 1212 174 C1187 191 1164 205 1147 224 C1184 230 1221 246 1242 271 C1193 266 1155 255 1118 239 C1095 247 1074 262 1053 284 C1056 255 1065 229 1081 206 Z"/>
+    <path class="bird-soft ink" d="M1249 355 C1289 322 1329 314 1375 328 C1350 341 1327 355 1312 373 C1347 380 1380 394 1401 416 C1354 412 1319 401 1285 387 C1263 396 1240 411 1218 430 C1222 403 1232 379 1249 355 Z"/>
+    <path class="bird ink" d="M1420 262 C1456 231 1499 224 1543 236 C1519 248 1498 260 1482 277 C1518 282 1551 295 1572 316 C1529 314 1491 304 1456 290 C1435 299 1414 313 1392 330 C1398 304 1406 281 1420 262 Z"/>
+  </g>
+
+  <g opacity="0.5">
+    <path class="bird-soft" d="M644 404 C680 382 717 376 757 388 C739 397 719 408 707 423 C738 425 765 438 785 455 C744 454 712 446 683 437 C661 445 643 458 623 472 C627 450 633 427 644 404 Z"/>
+    <path class="bird-soft" d="M842 447 C874 425 909 420 946 430 C929 440 911 450 899 464 C928 468 954 480 971 496 C933 494 905 486 878 476 C857 483 840 496 821 509 C824 488 831 466 842 447 Z"/>
+    <path class="bird-soft" d="M478 470 C515 450 552 446 590 457 C573 466 556 476 545 490 C574 493 602 505 620 521 C580 519 551 511 522 500 C503 508 486 521 467 535 C470 514 473 492 478 470 Z"/>
+    <path class="bird-soft" d="M304 560 C340 543 376 540 409 548 C394 556 378 567 368 579 C394 582 418 591 434 603 C399 602 372 596 346 588 C329 594 313 605 295 617 C296 598 299 578 304 560 Z"/>
+    <path class="bird-soft" d="M184 486 C214 467 247 463 281 472 C266 480 251 489 241 501 C267 505 292 515 308 529 C272 526 245 520 220 511 C202 517 187 529 171 541 C173 521 176 501 184 486 Z"/>
+  </g>
+
+  <g opacity="0.45">
+    <ellipse cx="1110" cy="399" rx="20" ry="9" fill="#a2bf78"/>
+    <ellipse cx="1148" cy="389" rx="12" ry="6" fill="#a2bf78"/>
+    <ellipse cx="1189" cy="378" rx="10" ry="5" fill="#a2bf78"/>
+  </g>
+
+  <g opacity="0.44">
+    <path d="M66 331 H86" class="skim"/>
+    <path d="M118 359 H136" class="skim"/>
+    <path d="M174 339 H200" class="skim"/>
+    <path d="M250 372 H277" class="skim"/>
+    <path d="M332 349 H358" class="skim"/>
+    <path d="M408 389 H432" class="skim"/>
+    <path d="M490 359 H515" class="skim"/>
+    <path d="M566 334 H591" class="skim"/>
+    <path d="M643 371 H668" class="skim"/>
+    <path d="M727 350 H752" class="skim"/>
+    <path d="M809 391 H833" class="skim"/>
+    <path d="M888 347 H914" class="skim"/>
+    <path d="M966 331 H994" class="skim"/>
+    <path d="M1052 361 H1076" class="skim"/>
+    <path d="M1122 343 H1144" class="skim"/>
+    <path d="M1207 372 H1230" class="skim"/>
+    <path d="M1286 351 H1315" class="skim"/>
+    <path d="M1370 330 H1396" class="skim"/>
+    <path d="M1450 369 H1476" class="skim"/>
+  </g>
+
+  <g opacity="0.32" filter="url(#grain)">
+    <rect width="1600" height="900" fill="#000"/>
+  </g>
+</svg>

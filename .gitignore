@@ -4,5 +4,6 @@
 .env.local
 .env.*.local
 *.log
+.Rhistory
 hypeswpe
 hypeswpe.pub

@@ -80,6 +80,11 @@ let selectedRange = "180d";
 let historicalPriceMap = new Map();
 let historicalCirculatingMap = new Map();
 let liveSnapshot = createLiveSnapshot();
+let hoverSyncState = {
+  combined: null,
+  price: null,
+  isSyncing: false,
+};
 
 initialize();
 
@@ -206,16 +211,23 @@ function renderDashboard() {
   const series = computeSeries(rawRows, config);
   const current = series.at(-1);
   const visibleSeries = filterSeriesByRange(series, selectedRange);
-  const visibleMean = average(visibleSeries.map((row) => row.swpe));
+  const chartSeries = visibleSeries.filter((row) =>
+    Number.isFinite(row.swpe) &&
+    Number.isFinite(row.meanSwpe) &&
+    Number.isFinite(row.revenueEma30) &&
+    Number.isFinite(row.price)
+  );
+  const visibleMean = average(chartSeries.map((row) => row.swpe));
+  const xLabelIndices = buildXAxisLabelIndices(chartSeries.length, 6);
 
-  if (!current) {
+  if (!current || !chartSeries.length) {
     return;
   }
 
   elements.currentSwpe.textContent = formatNumber(current.swpe, 2);
   elements.currentSwpeMeta.textContent = `${formatSupplyMode(config.supplyMode)} market cap = ${formatCompactCurrency(current.selectedMarketCap)}`;
   elements.currentMeanSwpe.textContent = formatNumber(visibleMean, 2);
-  elements.meanSwpeMeta.textContent = `Flat ${selectedRange} average across ${visibleSeries.length} observations`;
+  elements.meanSwpeMeta.textContent = `Flat ${selectedRange} average across ${chartSeries.length} observations`;
   elements.currentRevenue.textContent = formatCompactCurrency(current.revenueEma30);
   elements.currentRevenueMeta.textContent = getRevenueMeta(current);
   elements.supplyModeLabel.textContent = formatSupplyMode(config.supplyMode);
@@ -227,16 +239,29 @@ function renderDashboard() {
   elements.fdvReference.textContent = formatCompactCurrency(config.currentPrice * config.totalSupply);
 
   renderDualAxisChart(elements.combinedChart, {
-    data: visibleSeries,
+    data: chartSeries,
     swpeValue: current.swpe,
     meanValue: visibleMean,
     revenueValue: current.revenueEma30,
+    xLabelIndices,
   });
 
   renderPriceChart(elements.priceChart, {
-    data: visibleSeries,
+    data: chartSeries,
     priceValue: current.price,
+    xLabelIndices,
   });
+}
+
+function buildXAxisLabelIndices(length, count) {
+  if (!length) {
+    return [];
+  }
+
+  const labelCount = Math.min(count, length);
+  return Array.from({ length: labelCount }, (_, index) =>
+    Math.round((index / Math.max(labelCount - 1, 1)) * (length - 1))
+  );
 }
 
 function computeSeries(rows, config) {
@@ -359,9 +384,7 @@ function renderDualAxisChart(container, options) {
     return { value, y };
   });
 
-  const labelCount = Math.min(6, data.length);
-  const xLabels = Array.from({ length: labelCount }, (_, index) => {
-    const pointIndex = Math.round((index / Math.max(labelCount - 1, 1)) * (data.length - 1));
+  const xLabels = (options.xLabelIndices || []).map((pointIndex) => {
     const row = data[pointIndex];
     const x = padding.left + (pointIndex / Math.max(data.length - 1, 1)) * innerWidth;
     return {
@@ -372,16 +395,16 @@ function renderDualAxisChart(container, options) {
 
   container.innerHTML = `
     <div class="chart-legend">
-      <span class="legend-pill"><span class="legend-line" style="background:#ff66c4"></span>SWPE ratio</span>
-      <span class="legend-pill"><span class="legend-line dashed" style="color:#f4c96c"></span>mean swpe</span>
-      <span class="legend-pill"><span class="legend-line" style="background:#67e8f9"></span>Revenue - 30d EMA</span>
+      <span class="legend-pill"><span class="legend-line" style="background:#b44380"></span>SWPE ratio</span>
+      <span class="legend-pill"><span class="legend-line dashed" style="color:#b48a2a"></span>mean swpe</span>
+      <span class="legend-pill"><span class="legend-line" style="background:#1d79b4"></span>Revenue - 30d EMA</span>
     </div>
     <div class="chart-badge">
       <span>SWPE ${formatNumber(options.swpeValue, 2)} | mean ${formatNumber(options.meanValue, 2)} | revenue ${formatCompactCurrency(options.revenueValue)}</span>
     </div>
     <svg class="chart-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-label="SWPE and revenue chart">
       ${leftTicks.map((tick) => `
-        <line x1="${padding.left}" y1="${tick.y}" x2="${width - padding.right}" y2="${tick.y}" stroke="rgba(255,255,255,0.08)" stroke-dasharray="4 8" />
+        <line x1="${padding.left}" y1="${tick.y}" x2="${width - padding.right}" y2="${tick.y}" stroke="rgba(31,91,136,0.12)" stroke-dasharray="4 8" />
         <text x="${padding.left - 12}" y="${tick.y + 4}" text-anchor="end" class="tick-label">${escapeHtml(formatNumber(tick.value, 2))}</text>
       `).join("")}
 
@@ -393,24 +416,21 @@ function renderDualAxisChart(container, options) {
         <text x="${tick.x}" y="${height - 16}" text-anchor="middle" class="tick-label">${tick.label}</text>
       `).join("")}
 
-      <text x="${padding.left}" y="24" text-anchor="start" class="axis-label">SWPE Ratio</text>
-      <text x="${width - padding.right}" y="24" text-anchor="end" class="axis-label">Revenue - 30d EMA</text>
-
-      <polyline class="series-line" points="${swpePolyline}" stroke="#ff66c4" stroke-width="2.1"></polyline>
-      <line x1="${padding.left}" y1="${meanLineY}" x2="${width - padding.right}" y2="${meanLineY}" stroke="#f4c96c" stroke-width="2.2" stroke-dasharray="10 9"></line>
-      <polyline class="series-line" points="${revenuePolyline}" stroke="#67e8f9" stroke-width="2.1"></polyline>
+      <polyline class="series-line" points="${swpePolyline}" stroke="#b44380" stroke-width="2.1"></polyline>
+      <line x1="${padding.left}" y1="${meanLineY}" x2="${width - padding.right}" y2="${meanLineY}" stroke="#b48a2a" stroke-width="2.2" stroke-dasharray="10 9"></line>
+      <polyline class="series-line" points="${revenuePolyline}" stroke="#1d79b4" stroke-width="2.1"></polyline>
 
       ${xPoints.map((point) => `
-        <circle cx="${point.x}" cy="${toLeftY(point.row.swpe)}" r="1.15" fill="#ff66c4" opacity="0.86"></circle>
-        <circle cx="${point.x}" cy="${toRightY(point.row.revenueEma30)}" r="1.15" fill="#67e8f9" opacity="0.86"></circle>
+        <circle cx="${point.x}" cy="${toLeftY(point.row.swpe)}" r="1.15" fill="#b44380" opacity="0.86"></circle>
+        <circle cx="${point.x}" cy="${toRightY(point.row.revenueEma30)}" r="1.15" fill="#1d79b4" opacity="0.86"></circle>
       `).join("")}
 
       <line id="hoverXGuide" class="hover-line" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${height - padding.bottom}" visibility="hidden"></line>
-      <circle id="hoverSwpeDot" class="hover-dot" cx="${padding.left}" cy="${padding.top}" r="4.5" fill="#ff66c4" visibility="hidden"></circle>
-      <circle id="hoverRevenueDot" class="hover-dot" cx="${padding.left}" cy="${padding.top}" r="4.5" fill="#67e8f9" visibility="hidden"></circle>
+      <circle id="hoverSwpeDot" class="hover-dot" cx="${padding.left}" cy="${padding.top}" r="4.5" fill="#b44380" visibility="hidden"></circle>
+      <circle id="hoverRevenueDot" class="hover-dot" cx="${padding.left}" cy="${padding.top}" r="4.5" fill="#1d79b4" visibility="hidden"></circle>
 
-      <circle cx="${xPoints.at(-1)?.x ?? 0}" cy="${toLeftY(xPoints.at(-1)?.row.swpe ?? 0)}" r="5" fill="#ff66c4" stroke="#080c17" stroke-width="3"></circle>
-      <circle cx="${xPoints.at(-1)?.x ?? 0}" cy="${toRightY(xPoints.at(-1)?.row.revenueEma30 ?? 0)}" r="5" fill="#67e8f9" stroke="#080c17" stroke-width="3"></circle>
+      <circle cx="${xPoints.at(-1)?.x ?? 0}" cy="${toLeftY(xPoints.at(-1)?.row.swpe ?? 0)}" r="5" fill="#b44380" stroke="#fffaf4" stroke-width="3"></circle>
+      <circle cx="${xPoints.at(-1)?.x ?? 0}" cy="${toRightY(xPoints.at(-1)?.row.revenueEma30 ?? 0)}" r="5" fill="#1d79b4" stroke="#fffaf4" stroke-width="3"></circle>
       <rect id="hoverOverlay" x="${padding.left}" y="${padding.top}" width="${innerWidth}" height="${innerHeight}" fill="transparent"></rect>
     </svg>
     <div id="chartTooltip" class="chart-tooltip">
@@ -421,7 +441,7 @@ function renderDualAxisChart(container, options) {
     </div>
   `;
 
-  attachChartTooltip(container, {
+  hoverSyncState.combined = attachChartTooltip(container, {
     xPoints,
     data,
     padding,
@@ -436,7 +456,7 @@ function renderPriceChart(container, options) {
   const data = options.data.filter((row) => Number.isFinite(row.price));
   const width = container.clientWidth || 1000;
   const height = container.clientHeight || 320;
-  const padding = { top: 56, right: 28, bottom: 42, left: 72 };
+  const padding = { top: 56, right: 72, bottom: 42, left: 72 };
   const innerWidth = width - padding.left - padding.right;
   const innerHeight = height - padding.top - padding.bottom;
   const tickCount = 5;
@@ -467,9 +487,7 @@ function renderPriceChart(container, options) {
     return { value, y };
   });
 
-  const labelCount = Math.min(6, data.length);
-  const xLabels = Array.from({ length: labelCount }, (_, index) => {
-    const pointIndex = Math.round((index / Math.max(labelCount - 1, 1)) * (data.length - 1));
+  const xLabels = (options.xLabelIndices || []).map((pointIndex) => {
     const row = data[pointIndex];
     const x = padding.left + (pointIndex / Math.max(data.length - 1, 1)) * innerWidth;
     return {
@@ -480,14 +498,14 @@ function renderPriceChart(container, options) {
 
   container.innerHTML = `
     <div class="chart-legend">
-      <span class="legend-pill"><span class="legend-line" style="background:#8cf6c8"></span>HYPE price</span>
+      <span class="legend-pill"><span class="legend-line" style="background:#2c7f78"></span>HYPE price</span>
     </div>
     <div class="chart-badge">
       <span>Price ${formatCurrency(options.priceValue)}</span>
     </div>
     <svg class="chart-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-label="HYPE price chart">
       ${leftTicks.map((tick) => `
-        <line x1="${padding.left}" y1="${tick.y}" x2="${width - padding.right}" y2="${tick.y}" stroke="rgba(255,255,255,0.08)" stroke-dasharray="4 8" />
+        <line x1="${padding.left}" y1="${tick.y}" x2="${width - padding.right}" y2="${tick.y}" stroke="rgba(31,91,136,0.12)" stroke-dasharray="4 8" />
         <text x="${padding.left - 12}" y="${tick.y + 4}" text-anchor="end" class="tick-label">${escapeHtml(formatCurrency(tick.value))}</text>
       `).join("")}
 
@@ -495,18 +513,16 @@ function renderPriceChart(container, options) {
         <text x="${tick.x}" y="${height - 16}" text-anchor="middle" class="tick-label">${tick.label}</text>
       `).join("")}
 
-      <text x="${padding.left}" y="24" text-anchor="start" class="axis-label">HYPE Price</text>
-
-      <polyline class="series-line" points="${pricePolyline}" stroke="#8cf6c8" stroke-width="2.1"></polyline>
+      <polyline class="series-line" points="${pricePolyline}" stroke="#2c7f78" stroke-width="2.1"></polyline>
 
       ${xPoints.map((point) => `
-        <circle cx="${point.x}" cy="${toY(point.row.price)}" r="1.15" fill="#8cf6c8" opacity="0.86"></circle>
+        <circle cx="${point.x}" cy="${toY(point.row.price)}" r="1.15" fill="#2c7f78" opacity="0.86"></circle>
       `).join("")}
 
       <line id="priceHoverXGuide" class="hover-line" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${height - padding.bottom}" visibility="hidden"></line>
-      <circle id="priceHoverDot" class="hover-dot" cx="${padding.left}" cy="${padding.top}" r="4.5" fill="#8cf6c8" visibility="hidden"></circle>
+      <circle id="priceHoverDot" class="hover-dot" cx="${padding.left}" cy="${padding.top}" r="4.5" fill="#2c7f78" visibility="hidden"></circle>
 
-      <circle cx="${xPoints.at(-1)?.x ?? 0}" cy="${toY(xPoints.at(-1)?.row.price ?? 0)}" r="5" fill="#8cf6c8" stroke="#080c17" stroke-width="3"></circle>
+      <circle cx="${xPoints.at(-1)?.x ?? 0}" cy="${toY(xPoints.at(-1)?.row.price ?? 0)}" r="5" fill="#2c7f78" stroke="#fffaf4" stroke-width="3"></circle>
       <rect id="priceHoverOverlay" x="${padding.left}" y="${padding.top}" width="${innerWidth}" height="${innerHeight}" fill="transparent"></rect>
     </svg>
     <div id="priceChartTooltip" class="chart-tooltip">
@@ -515,7 +531,7 @@ function renderPriceChart(container, options) {
     </div>
   `;
 
-  attachPriceChartTooltip(container, {
+  hoverSyncState.price = attachPriceChartTooltip(container, {
     data,
     xPoints,
     toY,
@@ -951,20 +967,23 @@ function attachChartTooltip(container, context) {
   const tooltipRevenue = container.querySelector("#tooltipRevenue");
 
   if (!overlay || !tooltip || !tooltipDate || !tooltipSwpe || !tooltipMean || !tooltipRevenue) {
-    return;
+    return null;
   }
 
-  const hide = () => {
+  const hide = (sync = true) => {
     tooltip.classList.remove("is-visible");
     xGuide?.setAttribute("visibility", "hidden");
     swpeDot?.setAttribute("visibility", "hidden");
     revenueDot?.setAttribute("visibility", "hidden");
+    if (sync) {
+      syncHoverHide("combined");
+    }
   };
 
-  const showAtIndex = (index) => {
+  const showAtIndex = (index, sync = true) => {
     const point = context.xPoints[index];
     if (!point) {
-      hide();
+      hide(sync);
       return;
     }
 
@@ -991,6 +1010,9 @@ function attachChartTooltip(container, context) {
 
     tooltip.classList.add("is-visible");
     positionTooltip(container, tooltip, x, Math.min(swpeY, revenueY) - 6);
+    if (sync) {
+      syncHoverByIndex("combined", index);
+    }
   };
 
   overlay.addEventListener("mousemove", (event) => {
@@ -1014,6 +1036,19 @@ function attachChartTooltip(container, context) {
     showAtIndex(index);
   }, { passive: true });
   overlay.addEventListener("touchend", hide);
+
+  return {
+    showAtIndex(index) {
+      if (index >= 0 && index < context.xPoints.length) {
+        showAtIndex(index, false);
+      } else {
+        hide(false);
+      }
+    },
+    hide() {
+      hide(false);
+    },
+  };
 }
 
 function attachPriceChartTooltip(container, context) {
@@ -1025,19 +1060,22 @@ function attachPriceChartTooltip(container, context) {
   const tooltipPrice = container.querySelector("#tooltipPrice");
 
   if (!overlay || !tooltip || !tooltipDate || !tooltipPrice) {
-    return;
+    return null;
   }
 
-  const hide = () => {
+  const hide = (sync = true) => {
     tooltip.classList.remove("is-visible");
     xGuide?.setAttribute("visibility", "hidden");
     priceDot?.setAttribute("visibility", "hidden");
+    if (sync) {
+      syncHoverHide("price");
+    }
   };
 
-  const showAtIndex = (index) => {
+  const showAtIndex = (index, sync = true) => {
     const point = context.xPoints[index];
     if (!point) {
-      hide();
+      hide(sync);
       return;
     }
 
@@ -1057,6 +1095,9 @@ function attachPriceChartTooltip(container, context) {
 
     tooltip.classList.add("is-visible");
     positionTooltip(container, tooltip, x, y - 6);
+    if (sync) {
+      syncHoverByIndex("price", index);
+    }
   };
 
   overlay.addEventListener("mousemove", (event) => {
@@ -1080,6 +1121,55 @@ function attachPriceChartTooltip(container, context) {
     showAtIndex(index);
   }, { passive: true });
   overlay.addEventListener("touchend", hide);
+
+  return {
+    showAtIndex(index) {
+      if (index >= 0 && index < context.xPoints.length) {
+        showAtIndex(index, false);
+      } else {
+        hide(false);
+      }
+    },
+    hide() {
+      hide(false);
+    },
+  };
+}
+
+function syncHoverByIndex(source, index) {
+  if (hoverSyncState.isSyncing) {
+    return;
+  }
+
+  hoverSyncState.isSyncing = true;
+  try {
+    if (source !== "combined") {
+      hoverSyncState.combined?.showAtIndex(index);
+    }
+    if (source !== "price") {
+      hoverSyncState.price?.showAtIndex(index);
+    }
+  } finally {
+    hoverSyncState.isSyncing = false;
+  }
+}
+
+function syncHoverHide(source) {
+  if (hoverSyncState.isSyncing) {
+    return;
+  }
+
+  hoverSyncState.isSyncing = true;
+  try {
+    if (source !== "combined") {
+      hoverSyncState.combined?.hide();
+    }
+    if (source !== "price") {
+      hoverSyncState.price?.hide();
+    }
+  } finally {
+    hoverSyncState.isSyncing = false;
+  }
 }
 
 function positionTooltip(container, tooltip, desiredLeft, desiredTop) {
