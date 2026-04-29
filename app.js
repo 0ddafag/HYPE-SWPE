@@ -65,7 +65,6 @@ const elements = {
   supplyModeMeta: document.querySelector("#supplyModeMeta"),
   sourceLabel: document.querySelector("#sourceLabel"),
   marketSnapshotLabel: document.querySelector("#marketSnapshotLabel"),
-  rowCount: document.querySelector("#rowCount"),
   marketCapReference: document.querySelector("#marketCapReference"),
   fdvReference: document.querySelector("#fdvReference"),
   combinedChart: document.querySelector("#combinedChart"),
@@ -234,7 +233,6 @@ function renderDashboard() {
   elements.supplyModeMeta.textContent = getSupplyModeDescription(config.supplyMode, current);
   elements.sourceLabel.textContent = sourceLabel;
   elements.marketSnapshotLabel.textContent = marketSnapshotLabel;
-  elements.rowCount.textContent = String(series.length);
   elements.marketCapReference.textContent = formatCompactCurrency(config.currentPrice * config.circulatingSupply);
   elements.fdvReference.textContent = formatCompactCurrency(config.currentPrice * config.totalSupply);
 
@@ -396,7 +394,7 @@ function renderDualAxisChart(container, options) {
   container.innerHTML = `
     <div class="chart-legend">
       <span class="legend-pill"><span class="legend-line" style="background:#b44380"></span>SWPE ratio</span>
-      <span class="legend-pill"><span class="legend-line dashed" style="color:#b48a2a"></span>mean swpe</span>
+      <span class="legend-pill"><span class="legend-line dashed" style="color:#b48a2a"></span>Mean SWPE</span>
       <span class="legend-pill"><span class="legend-line" style="background:#1d79b4"></span>Revenue - 30d EMA</span>
     </div>
     <div class="chart-badge">
