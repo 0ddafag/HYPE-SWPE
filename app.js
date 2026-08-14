@@ -37,6 +37,11 @@ const DEFAULTS = {
   totalSupply: 962274028,
   defaultStakedPct: 66.1,
   buybackShare: 0.99,
+  aqaActivationDate: "2026-08-26",
+  usdcBalance: 5000000000,
+  reserveYieldRate: 0.038,
+  aqaProtocolShare: 0.9,
+  buybackPaymentLag: 8,
   coingeckoSnapshotDate: "2026-04-07",
   autoRefreshMode: "disabled",
   coingeckoApiKey: "",
@@ -51,6 +56,11 @@ const elements = {
   buybackShare: document.querySelector("#buybackShare"),
   coingeckoApiKey: document.querySelector("#coingeckoApiKey"),
   autoRefreshMode: document.querySelector("#autoRefreshMode"),
+  aqaActivationDate: document.querySelector("#aqaActivationDate"),
+  usdcBalance: document.querySelector("#usdcBalance"),
+  reserveYieldRate: document.querySelector("#reserveYieldRate"),
+  aqaProtocolShare: document.querySelector("#aqaProtocolShare"),
+  buybackPaymentLag: document.querySelector("#buybackPaymentLag"),
   csvFile: document.querySelector("#csvFile"),
   reloadButton: document.querySelector("#reloadButton"),
   refreshMarketButton: document.querySelector("#refreshMarketButton"),
@@ -68,6 +78,7 @@ const elements = {
   marketCapReference: document.querySelector("#marketCapReference"),
   fdvReference: document.querySelector("#fdvReference"),
   combinedChart: document.querySelector("#combinedChart"),
+  adjustedChart: document.querySelector("#adjustedChart"),
   priceChart: document.querySelector("#priceChart"),
   timeframeRow: document.querySelector("#timeframeRow"),
 };
@@ -110,6 +121,11 @@ function seedInputs() {
   elements.buybackShare.value = saved.buybackShare ?? DEFAULTS.buybackShare;
   elements.coingeckoApiKey.value = saved.coingeckoApiKey ?? DEFAULTS.coingeckoApiKey;
   elements.autoRefreshMode.value = saved.autoRefreshMode ?? DEFAULTS.autoRefreshMode;
+  elements.aqaActivationDate.value = saved.aqaActivationDate ?? DEFAULTS.aqaActivationDate;
+  elements.usdcBalance.value = saved.usdcBalance ?? DEFAULTS.usdcBalance;
+  elements.reserveYieldRate.value = saved.reserveYieldRate ?? DEFAULTS.reserveYieldRate;
+  elements.aqaProtocolShare.value = saved.aqaProtocolShare ?? DEFAULTS.aqaProtocolShare;
+  elements.buybackPaymentLag.value = saved.buybackPaymentLag ?? DEFAULTS.buybackPaymentLag;
 }
 
 function attachEvents() {
@@ -155,6 +171,11 @@ function attachEvents() {
     elements.buybackShare,
     elements.coingeckoApiKey,
     elements.autoRefreshMode,
+    elements.aqaActivationDate,
+    elements.usdcBalance,
+    elements.reserveYieldRate,
+    elements.aqaProtocolShare,
+    elements.buybackPaymentLag,
   ].forEach((input) => {
     input.addEventListener("change", persistSettings);
     input.addEventListener("input", debounce(persistSettings, 150));
@@ -202,6 +223,11 @@ function getConfig() {
     totalSupply: Number(elements.totalSupply.value) || DEFAULTS.totalSupply,
     defaultStakedPct: (Number(elements.defaultStakedPct.value) || DEFAULTS.defaultStakedPct) / 100,
     buybackShare: Number(elements.buybackShare.value) || DEFAULTS.buybackShare,
+    aqaActivationDate: elements.aqaActivationDate.value || DEFAULTS.aqaActivationDate,
+    usdcBalance: Number(elements.usdcBalance.value) || DEFAULTS.usdcBalance,
+    reserveYieldRate: Number(elements.reserveYieldRate.value) || DEFAULTS.reserveYieldRate,
+    aqaProtocolShare: Number(elements.aqaProtocolShare.value) || DEFAULTS.aqaProtocolShare,
+    buybackPaymentLag: Number(elements.buybackPaymentLag.value) || DEFAULTS.buybackPaymentLag,
   };
 }
 
@@ -242,6 +268,17 @@ function renderDashboard() {
     meanValue: visibleMean,
     revenueValue: current.revenueEma30,
     xLabelIndices,
+  });
+
+  const adjustedSeries = buildAdjustedProjection(series, config);
+  renderDualAxisChart(elements.adjustedChart, {
+    data: adjustedSeries,
+    swpeValue: adjustedSeries.at(-1)?.swpe ?? current.swpe,
+    meanValue: average(adjustedSeries.map((row) => row.swpe)),
+    revenueValue: adjustedSeries.at(-1)?.revenueEma30 ?? current.revenueEma30,
+    xLabelIndices: buildXAxisLabelIndices(adjustedSeries.length, 6),
+    adjusted: true,
+    scenarioLabel: getAdjustedScenarioLabel(config),
   });
 
   renderPriceChart(elements.priceChart, {
@@ -324,6 +361,73 @@ function computeSeries(rows, config) {
   }));
 }
 
+function buildAdjustedProjection(series, config) {
+  const current = series.at(-1);
+  if (!current) {
+    return [];
+  }
+
+  const activationDate = getUtcMidnight(new Date(`${config.aqaActivationDate}T00:00:00Z`));
+  const firstDate = new Date(current.date.getTime() - (59 * DAY_MS));
+  const horizonDays = 365;
+  const dailyYield = config.usdcBalance * config.reserveYieldRate * config.aqaProtocolShare / 365;
+  const paymentIntervalDays = 30;
+  const firstPaymentDate = new Date(activationDate.getTime() + ((paymentIntervalDays - 1 + config.buybackPaymentLag) * DAY_MS));
+  let ema = series.find((row) => toDateKey(row.date) === toDateKey(firstDate))?.revenueEma30 ?? current.revenueEma30;
+  const alpha = 2 / (EMA_PERIOD + 1);
+  const projected = [];
+
+  for (let index = 0; index <= 59 + horizonDays; index += 1) {
+    const date = new Date(firstDate.getTime() + (index * DAY_MS));
+    const isHistorical = date <= current.date;
+    const historical = isHistorical
+      ? series.find((row) => toDateKey(row.date) === toDateKey(date))
+      : null;
+    const paymentNumber = Math.floor((date.getTime() - firstPaymentDate.getTime()) / (paymentIntervalDays * DAY_MS));
+    const isPaymentDate = date >= firstPaymentDate && paymentNumber >= 0 &&
+      (date.getTime() - firstPaymentDate.getTime()) % (paymentIntervalDays * DAY_MS) === 0;
+    const modeledBuyback = !isHistorical && isPaymentDate ? dailyYield * paymentIntervalDays : 0;
+    const revenue = historical?.buybackRevenue ?? modeledBuyback;
+
+    if (Number.isFinite(revenue) && revenue > 0) {
+      ema = (revenue * alpha) + (ema * (1 - alpha));
+    }
+
+    const price = historical?.price ?? current.price;
+    const circulatingSupply = historical?.circulatingSupply ?? current.circulatingSupply;
+    const stakedHype = historical?.stakedHype ?? current.stakedHype;
+    const readySupply = Math.max(circulatingSupply - stakedHype, 0);
+    const selectedSupply = selectSupply(config.supplyMode, { circulatingSupply, readySupply });
+    const selectedMarketCap = selectedSupply * price;
+    const annualizedRevenue = ema * 365;
+
+    projected.push({
+      date,
+      price,
+      circulatingSupply,
+      stakedHype,
+      readySupply,
+      selectedSupply,
+      selectedMarketCap,
+      buybackRevenue: revenue,
+      modeledBuybackRevenue: modeledBuyback,
+      revenueEma30: ema,
+      annualizedRevenue,
+      swpe: annualizedRevenue > 0 ? selectedMarketCap / annualizedRevenue : 0,
+      meanSwpe: 0,
+      isProjected: !isHistorical,
+    });
+  }
+
+  const meanSwpe = average(projected.map((row) => row.swpe));
+  return projected.map((row) => ({ ...row, meanSwpe }));
+}
+
+function getAdjustedScenarioLabel(config) {
+  const annualizedYield = config.usdcBalance * config.reserveYieldRate * config.aqaProtocolShare;
+  return `AQAv2: ${formatCompactCurrency(annualizedYield)}/yr at ${formatCompactNumber(config.usdcBalance)} USDC, ${formatNumber(config.aqaProtocolShare * 100, 0)}% share`;
+}
+
 function selectSupply(mode, supply) {
   if (mode === "circulating") {
     return supply.circulatingSupply;
@@ -393,12 +497,12 @@ function renderDualAxisChart(container, options) {
 
   container.innerHTML = `
     <div class="chart-legend">
-      <span class="legend-pill"><span class="legend-line" style="background:#b44380"></span>SWPE ratio</span>
+      <span class="legend-pill"><span class="legend-line" style="background:#b44380"></span>${options.adjusted ? "Adjusted SWPE ratio" : "SWPE ratio"}</span>
       <span class="legend-pill"><span class="legend-line dashed" style="color:#b48a2a"></span>Mean SWPE</span>
-      <span class="legend-pill"><span class="legend-line" style="background:#1d79b4"></span>Revenue - 30d EMA</span>
+      <span class="legend-pill"><span class="legend-line" style="background:#1d79b4"></span>${options.adjusted ? "Adjusted revenue - 30d EMA" : "Revenue - 30d EMA"}</span>
     </div>
     <div class="chart-badge">
-      <span>SWPE ${formatNumber(options.swpeValue, 2)} | mean ${formatNumber(options.meanValue, 2)} | revenue ${formatCompactCurrency(options.revenueValue)}</span>
+      <span>${escapeHtml(options.scenarioLabel || `SWPE ${formatNumber(options.swpeValue, 2)} | mean ${formatNumber(options.meanValue, 2)} | revenue ${formatCompactCurrency(options.revenueValue)}`)}</span>
     </div>
     <svg class="chart-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-label="SWPE and revenue chart">
       ${leftTicks.map((tick) => `
@@ -1261,6 +1365,11 @@ function persistSettings() {
     buybackShare: elements.buybackShare.value,
     coingeckoApiKey: elements.coingeckoApiKey.value,
     autoRefreshMode: elements.autoRefreshMode.value,
+    aqaActivationDate: elements.aqaActivationDate.value,
+    usdcBalance: elements.usdcBalance.value,
+    reserveYieldRate: elements.reserveYieldRate.value,
+    aqaProtocolShare: elements.aqaProtocolShare.value,
+    buybackPaymentLag: elements.buybackPaymentLag.value,
   };
 
   localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(payload));

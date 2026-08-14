@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HYPE SWPE Dashboard</title>
-  <link rel="stylesheet" href="./styles.css?v=20260429c">
+  <link rel="stylesheet" href="./styles.css?v=20260814aqa">
 </head>
 <body>
   <div class="page-shell">
@@ -104,6 +104,31 @@
           </select>
         </label>
 
+        <label class="field">
+          <span>AQAv2 activation date</span>
+          <input id="aqaActivationDate" type="date">
+        </label>
+
+        <label class="field">
+          <span>USDC balance on Hyperliquid</span>
+          <input id="usdcBalance" type="number" min="0" step="1000000">
+        </label>
+
+        <label class="field">
+          <span>Reserve yield rate</span>
+          <input id="reserveYieldRate" type="number" min="0" max="1" step="0.001">
+        </label>
+
+        <label class="field">
+          <span>AQAv2 protocol share</span>
+          <input id="aqaProtocolShare" type="number" min="0" max="1" step="0.01">
+        </label>
+
+        <label class="field">
+          <span>Buyback payment lag (days)</span>
+          <input id="buybackPaymentLag" type="number" min="0" max="60" step="1">
+        </label>
+
         <label class="field field-file">
           <span>Historical CSV</span>
           <input id="csvFile" type="file" accept=".csv,text/csv">
@@ -165,6 +190,19 @@
       <article class="chart-card panel">
         <div class="chart-header">
           <div>
+            <p class="eyebrow">Forward Scenario</p>
+            <h3>AQAv2-adjusted SWPE and revenue</h3>
+          </div>
+          <div class="chart-header-controls">
+            <p class="chart-summary">Same scale and styling, with a forward USDC reserve-yield stream added from the activation date. Buybacks are modeled after the documented 30-day accrual plus 8-day payment lag.</p>
+          </div>
+        </div>
+        <div id="adjustedChart" class="chart-frame"></div>
+      </article>
+
+      <article class="chart-card panel">
+        <div class="chart-header">
+          <div>
             <p class="eyebrow">Price View</p>
             <h3>HYPE price</h3>
           </div>
@@ -186,6 +224,7 @@
           <li><strong>Buyback revenue</strong> uses DefiLlama daily holders revenue for the live series, then falls back to CSV <code>buybacks</code>, <code>buyback_fee_allocation</code>, or <code>revenue</code>.</li>
           <li><strong>SWPE</strong> uses 30d EMA daily revenue annualized by multiplying by 365.</li>
           <li><strong>Mean SWPE</strong> is the selected timeframe average of SWPE shown as a flat reference line.</li>
+          <li><strong>AQAv2-adjusted scenario</strong> adds USDC balance x reserve yield x 90% protocol share after the activation date. Cash buybacks are recognized in 30-day batches after the configured payment lag, with price and supply held flat beyond the observed series.</li>
         </ul>
       </article>
 
@@ -202,6 +241,6 @@
     </section>
   </div>
 
-  <script src="./app.js?v=20260429c"></script>
+  <script src="./app.js?v=20260814aqa"></script>
 </body>
 </html>

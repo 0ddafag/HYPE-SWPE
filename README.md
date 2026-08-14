@@ -5,13 +5,27 @@ Quick links:
 - `GITHUB_PUSH.md` for the clean first-commit flow
 - `DEPLOY_CHECKLIST.md` for the 1-minute Vercel verification routine
 
-This is a static dashboard for tracking three HYPE valuation views on one combined chart:
+This is a static dashboard for tracking three HYPE valuation views on one combined chart, plus a forward AQAv2 scenario chart:
 
 - SWPE ratio
 - Mean SWPE
 - 30d EMA Hyperliquid revenue
+- AQAv2-adjusted SWPE and revenue projection
 
-## Why this setup
+## AQAv2 forward scenario
+
+The second chart is a scenario, not realized historical revenue. Its defaults follow the current Hyperliquid AQA documentation and public reporting:
+
+- activation date: `2026-08-26`;
+- USDC balance: `$5B`;
+- cost-adjusted reserve yield: `3.8%` (editable assumption);
+- protocol share: `90%`;
+- reserve yield accrues in 30-day intervals and is sent to the Assistance Fund after an 8-day lag.
+
+The model recognizes each 30-day batch on its payment date, adds it to the 30d EMA, and extends the chart one year forward while holding current HYPE price and supply flat. Change the inputs to test earlier accrual, different TVL, yield, share, or payment timing.
+
+Reference: [Hyperliquid Aligned Quote Assets](https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/aligned-quote-assets), [Circle on USDC and Hyperliquid](https://www.circle.com/blog/circle-expands-support-for-usdc-on-hyperliquid).
+
 
 The workspace does not rely on Node, npm, or paid API infrastructure. It is designed around a cheap workflow:
 
