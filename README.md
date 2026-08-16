@@ -17,10 +17,17 @@ This is a static dashboard for tracking three HYPE valuation views on one combin
 The second chart is a scenario, not realized historical revenue. Its defaults follow the current Hyperliquid AQA documentation and public reporting:
 
 - activation date: `2026-08-26`;
-- USDC balance: `$5B`;
-- cost-adjusted reserve yield: `3.8%` (editable assumption);
+- USDC balance: live provisional Coinbase-address proxy (HyperEVM ERC-20 + HyperCore spot USDC), with a `$4.901B` verified snapshot fallback;
+- cost-adjusted reserve yield: `3.25%` (editable assumption, based on current public reporting);
 - protocol share: `90%`;
 - reserve yield accrues in 30-day intervals and is sent to the Assistance Fund after an 8-day lag.
+
+The balance proxy uses the two Coinbase activation addresses published by Coinbase:
+
+- `0x4E5319dEb1072B01439EE674db5C321d11fd96F8`
+- `0xc20699185c15D0a2fD65779BB5d69f5b0B113c00`
+
+It is explicitly provisional: it is not yet the final AQAv2 eligible-balance formula.
 
 The model recognizes each 30-day batch on its payment date, adds it to the 30d EMA, and extends the chart one year forward while holding current HYPE price and supply flat. Change the inputs to test earlier accrual, different TVL, yield, share, or payment timing.
 

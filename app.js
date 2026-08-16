@@ -11,6 +11,12 @@ const HYPERLIQUID_PROXY_URL = "/api/hyperliquid";
 const HYPERLIQUID_INFO_URL = "https://api.hyperliquid.xyz/info";
 const HYPURRSCAN_PROXY_URL = "/api/hypurrscan";
 const HYPURRSCAN_UNSTAKING_URL = "https://api.hypurrscan.io/unstakingQueue";
+const AQAV2_BALANCE_PROXY_URL = "/api/aqav2";
+const AQAV2_USDC_TOKEN = "0xb88339CB7199b77E23DB6E890353E22632Ba630f";
+const AQAV2_TREASURY_ADDRESSES = [
+  "0x4E5319dEb1072B01439EE674db5C321d11fd96F8",
+  "0xc20699185c15D0a2fD65779BB5d69f5b0B113c00",
+];
 const EXCLUDED_STAKING_WALLETS = [
   {
     label: "HyperLabs wallet",
@@ -38,8 +44,8 @@ const DEFAULTS = {
   defaultStakedPct: 66.1,
   buybackShare: 0.99,
   aqaActivationDate: "2026-08-26",
-  usdcBalance: 5000000000,
-  reserveYieldRate: 0.038,
+  usdcBalance: 4901099263.15,
+  reserveYieldRate: 0.0325,
   aqaProtocolShare: 0.9,
   buybackPaymentLag: 8,
   coingeckoSnapshotDate: "2026-04-07",
@@ -706,6 +712,9 @@ function createLiveSnapshot() {
     excludedWalletBreakdown: [],
     effectiveCirculatingStaked: null,
     unstakingQueue: null,
+    aqaEligibleBalance: null,
+    aqaBalanceBreakdown: [],
+    aqaBalanceAsOf: null,
   };
 }
 
@@ -867,9 +876,10 @@ async function loadFreeData({ replaceSeries, silent }) {
     fetchHyperliquidTotalStaked(),
     fetchHypurrscanUnstakingQueue(),
     fetchExcludedWalletStakes(),
+    fetchAqaEligibleBalance(),
   ]);
 
-  const [revenueResult, marketResult, chartResult, stakedResult, unstakingResult, excludedWalletsResult] = results;
+  const [revenueResult, marketResult, chartResult, stakedResult, unstakingResult, excludedWalletsResult, aqaBalanceResult] = results;
 
   if (marketResult.status === "fulfilled") {
     applyCoinGeckoMarketSnapshot(marketResult.value);
@@ -894,6 +904,13 @@ async function loadFreeData({ replaceSeries, silent }) {
     liveSnapshot.excludedWalletStaked = excludedWalletsResult.value.reduce((sum, item) => sum + item.delegated, 0);
   }
 
+  if (aqaBalanceResult.status === "fulfilled" && Number.isFinite(aqaBalanceResult.value.total)) {
+    liveSnapshot.aqaEligibleBalance = aqaBalanceResult.value.total;
+    liveSnapshot.aqaBalanceBreakdown = aqaBalanceResult.value.addresses || [];
+    liveSnapshot.aqaBalanceAsOf = new Date();
+    elements.usdcBalance.value = Math.round(aqaBalanceResult.value.total);
+  }
+
   updateLiveStakingAdjustment();
 
   if (replaceSeries && revenueResult.status === "fulfilled") {
@@ -906,7 +923,8 @@ async function loadFreeData({ replaceSeries, silent }) {
   if (
     marketResult.status === "fulfilled" ||
     stakedResult.status === "fulfilled" ||
-    unstakingResult.status === "fulfilled"
+    unstakingResult.status === "fulfilled" ||
+    aqaBalanceResult.status === "fulfilled"
   ) {
     const snapshotParts = ["Live free-source snapshot"];
     if (marketResult.status === "fulfilled") {
@@ -920,6 +938,9 @@ async function loadFreeData({ replaceSeries, silent }) {
     }
     if (Number.isFinite(liveSnapshot.excludedWalletStaked)) {
       snapshotParts.push(`${formatCompactNumber(liveSnapshot.excludedWalletStaked)} excluded-wallet staked`);
+    }
+    if (Number.isFinite(liveSnapshot.aqaEligibleBalance)) {
+      snapshotParts.push(`${formatCompactNumber(liveSnapshot.aqaEligibleBalance)} AQAv2 USDC proxy`);
     }
     marketSnapshotLabel = snapshotParts.join(" | ");
   }
@@ -1437,6 +1458,17 @@ async function fetchHypurrscanUnstakingQueue() {
     fallbackUrl: HYPURRSCAN_UNSTAKING_URL,
   });
   return payload.reduce((sum, item) => sum + (Number(item.wei) / 1e8), 0);
+}
+
+async function fetchAqaEligibleBalance() {
+  const payload = await fetchJson(`${AQAV2_BALANCE_PROXY_URL}?token=${encodeURIComponent(AQAV2_USDC_TOKEN)}&addresses=${encodeURIComponent(AQAV2_TREASURY_ADDRESSES.join(","))}`);
+  if (!Number.isFinite(Number(payload.total))) {
+    throw new Error("AQAv2 balance proxy returned no total");
+  }
+  return {
+    total: Number(payload.total),
+    addresses: Array.isArray(payload.addresses) ? payload.addresses : [],
+  };
 }
 
 async function fetchExcludedWalletStakes() {

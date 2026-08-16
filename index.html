@@ -110,7 +110,7 @@
         </label>
 
         <label class="field">
-          <span>USDC balance on Hyperliquid</span>
+          <span>Base USDC balance (live proxy)</span>
           <input id="usdcBalance" type="number" min="0" step="1000000">
         </label>
 
@@ -224,7 +224,7 @@
           <li><strong>Buyback revenue</strong> uses DefiLlama daily holders revenue for the live series, then falls back to CSV <code>buybacks</code>, <code>buyback_fee_allocation</code>, or <code>revenue</code>.</li>
           <li><strong>SWPE</strong> uses 30d EMA daily revenue annualized by multiplying by 365.</li>
           <li><strong>Mean SWPE</strong> is the selected timeframe average of SWPE shown as a flat reference line.</li>
-          <li><strong>AQAv2-adjusted scenario</strong> adds USDC balance x reserve yield x 90% protocol share after the activation date. Cash buybacks are recognized in 30-day batches after the configured payment lag, with price and supply held flat beyond the observed series.</li>
+          <li><strong>AQAv2-adjusted scenario</strong> uses a live provisional Coinbase-address USDC balance proxy (HyperEVM ERC-20 plus HyperCore spot USDC), then applies daily balance x reserve yield x approximately 90% protocol share after the 2026-08-26 activation date. The proxy is not the final eligible-balance formula. Cash buybacks are recognized in 30-day batches after the configured payment lag, with price and supply held flat beyond the observed series.</li>
         </ul>
       </article>
 
@@ -236,6 +236,7 @@
           <li><strong>DefiLlama</strong> for free Hyperliquid revenue and holders-revenue series.</li>
           <li><strong>Hyperliquid official API</strong> for validator summaries and the network-wide total staked number.</li>
           <li><strong>Hypurrscan</strong> for the public unstaking queue and staking cross-checks.</li>
+          <li><strong>AQAv2 balance proxy</strong> reads USDC ERC-20 balances on HyperEVM and USDC spot balances on HyperCore for the two Coinbase activation addresses. This is a live provisional proxy pending the exact on-chain AQAv2 eligible-balance formula.</li>
         </ul>
       </article>
     </section>
