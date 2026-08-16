@@ -99,6 +99,7 @@ let liveSnapshot = createLiveSnapshot();
 let hoverSyncState = {
   combined: null,
   price: null,
+  adjusted: null,
   isSyncing: false,
 };
 
@@ -284,6 +285,7 @@ function renderDashboard() {
     revenueValue: adjustedSeries.at(-1)?.revenueEma30 ?? current.revenueEma30,
     xLabelIndices: buildXAxisLabelIndices(adjustedSeries.length, 6),
     adjusted: true,
+    syncKey: "adjusted",
     scenarioLabel: getAdjustedScenarioLabel(config),
   });
 
@@ -549,7 +551,7 @@ function renderDualAxisChart(container, options) {
     </div>
   `;
 
-  hoverSyncState.combined = attachChartTooltip(container, {
+  hoverSyncState[options.syncKey || "combined"] = attachChartTooltip(container, {
     xPoints,
     data,
     padding,
@@ -557,6 +559,7 @@ function renderDualAxisChart(container, options) {
     toLeftY,
     toRightY,
     meanValue: options.meanValue,
+    syncKey: options.syncKey || "combined",
   });
 }
 
@@ -643,6 +646,7 @@ function renderPriceChart(container, options) {
     data,
     xPoints,
     toY,
+    syncKey: "price",
   });
 }
 
@@ -1099,7 +1103,7 @@ function attachChartTooltip(container, context) {
     swpeDot?.setAttribute("visibility", "hidden");
     revenueDot?.setAttribute("visibility", "hidden");
     if (sync) {
-      syncHoverHide("combined");
+      syncHoverHide(context.syncKey);
     }
   };
 
@@ -1134,7 +1138,7 @@ function attachChartTooltip(container, context) {
     tooltip.classList.add("is-visible");
     positionTooltip(container, tooltip, x, Math.min(swpeY, revenueY) - 6);
     if (sync) {
-      syncHoverByIndex("combined", index);
+      syncHoverByDate(context.syncKey, point.row.date);
     }
   };
 
@@ -1163,6 +1167,14 @@ function attachChartTooltip(container, context) {
   return {
     showAtIndex(index) {
       if (index >= 0 && index < context.xPoints.length) {
+        showAtIndex(index, false);
+      } else {
+        hide(false);
+      }
+    },
+    showAtDate(date) {
+      const index = findClosestDateIndex(context.xPoints, date);
+      if (index >= 0) {
         showAtIndex(index, false);
       } else {
         hide(false);
@@ -1191,7 +1203,7 @@ function attachPriceChartTooltip(container, context) {
     xGuide?.setAttribute("visibility", "hidden");
     priceDot?.setAttribute("visibility", "hidden");
     if (sync) {
-      syncHoverHide("price");
+      syncHoverHide(context.syncKey);
     }
   };
 
@@ -1219,7 +1231,7 @@ function attachPriceChartTooltip(container, context) {
     tooltip.classList.add("is-visible");
     positionTooltip(container, tooltip, x, y - 6);
     if (sync) {
-      syncHoverByIndex("price", index);
+      syncHoverByDate(context.syncKey, point.row.date);
     }
   };
 
@@ -1253,25 +1265,50 @@ function attachPriceChartTooltip(container, context) {
         hide(false);
       }
     },
+    showAtDate(date) {
+      const index = findClosestDateIndex(context.xPoints, date);
+      if (index >= 0) {
+        showAtIndex(index, false);
+      } else {
+        hide(false);
+      }
+    },
     hide() {
       hide(false);
     },
   };
 }
 
-function syncHoverByIndex(source, index) {
+function findClosestDateIndex(xPoints, date) {
+  if (!xPoints?.length || !date) {
+    return -1;
+  }
+
+  const target = date.getTime();
+  let bestIndex = 0;
+  let bestDistance = Math.abs(xPoints[0].row.date.getTime() - target);
+  for (let index = 1; index < xPoints.length; index += 1) {
+    const distance = Math.abs(xPoints[index].row.date.getTime() - target);
+    if (distance < bestDistance) {
+      bestIndex = index;
+      bestDistance = distance;
+    }
+  }
+  return bestDistance <= DAY_MS / 2 ? bestIndex : -1;
+}
+
+function syncHoverByDate(source, date) {
   if (hoverSyncState.isSyncing) {
     return;
   }
 
   hoverSyncState.isSyncing = true;
   try {
-    if (source !== "combined") {
-      hoverSyncState.combined?.showAtIndex(index);
-    }
-    if (source !== "price") {
-      hoverSyncState.price?.showAtIndex(index);
-    }
+    Object.entries(hoverSyncState).forEach(([key, tooltip]) => {
+      if (key !== source && key !== "isSyncing") {
+        tooltip?.showAtDate(date);
+      }
+    });
   } finally {
     hoverSyncState.isSyncing = false;
   }
@@ -1284,12 +1321,11 @@ function syncHoverHide(source) {
 
   hoverSyncState.isSyncing = true;
   try {
-    if (source !== "combined") {
-      hoverSyncState.combined?.hide();
-    }
-    if (source !== "price") {
-      hoverSyncState.price?.hide();
-    }
+    Object.entries(hoverSyncState).forEach(([key, tooltip]) => {
+      if (key !== source && key !== "isSyncing") {
+        tooltip?.hide();
+      }
+    });
   } finally {
     hoverSyncState.isSyncing = false;
   }
