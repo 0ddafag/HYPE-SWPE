@@ -20,7 +20,7 @@ The second chart is a scenario, not realized historical revenue. Its defaults fo
 - USDC balance: live provisional Coinbase-address proxy (HyperEVM ERC-20 + HyperCore spot USDC), with a `$4.901B` verified snapshot fallback;
 - cost-adjusted reserve yield: `3.25%` (editable assumption, based on current public reporting);
 - protocol share: `90%`;
-- reserve yield accrues in 30-day intervals and is sent to the Assistance Fund after an 8-day lag.
+- reserve yield accrues in 30-day intervals from 2026-08-26; public launch reporting gives 2026-10-03 as the first payment date, after the documented 8-day post-interval lag.
 
 The balance proxy uses the two Coinbase activation addresses published by Coinbase:
 
@@ -29,7 +29,7 @@ The balance proxy uses the two Coinbase activation addresses published by Coinba
 
 It is explicitly provisional: it is not yet the final AQAv2 eligible-balance formula.
 
-The model recognizes each 30-day batch on its payment date, adds it to the 30d EMA, and extends the chart one year forward while holding current HYPE price and supply flat. Change the inputs to test earlier accrual, different TVL, yield, share, or payment timing.
+The model starts distributing the first 30-day batch on 2026-10-03 and spreads each batch evenly across the following 30 days (`batch / 30`). This avoids an artificial monthly jump while preserving the same total flow. It extends the chart one year forward while holding current HYPE price and supply flat. Change the inputs to test different TVL, yield, share, or payment timing.
 
 Reference: [Hyperliquid Aligned Quote Assets](https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/aligned-quote-assets), [Circle on USDC and Hyperliquid](https://www.circle.com/blog/circle-expands-support-for-usdc-on-hyperliquid).
 

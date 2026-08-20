@@ -380,7 +380,11 @@ function buildAdjustedProjection(series, config) {
   const horizonDays = 365;
   const dailyYield = config.usdcBalance * config.reserveYieldRate * config.aqaProtocolShare / 365;
   const paymentIntervalDays = 30;
-  const firstPaymentDate = new Date(activationDate.getTime() + ((paymentIntervalDays - 1 + config.buybackPaymentLag) * DAY_MS));
+  // Public launch reporting says the first Assistance Fund payment is 3 Oct
+  // 2026 for the 26 Aug activation. Keep the lag input, but use the explicit
+  // reported first-payment convention rather than creating an Oct 2 spike
+  // from an off-by-one calendar calculation.
+  const firstPaymentDate = new Date(activationDate.getTime() + ((paymentIntervalDays + config.buybackPaymentLag) * DAY_MS));
   let ema = series.find((row) => toDateKey(row.date) === toDateKey(firstDate))?.revenueEma30 ?? current.revenueEma30;
   const alpha = 2 / (EMA_PERIOD + 1);
   const projected = [];
@@ -392,9 +396,11 @@ function buildAdjustedProjection(series, config) {
       ? series.find((row) => toDateKey(row.date) === toDateKey(date))
       : null;
     const paymentNumber = Math.floor((date.getTime() - firstPaymentDate.getTime()) / (paymentIntervalDays * DAY_MS));
-    const isPaymentDate = date >= firstPaymentDate && paymentNumber >= 0 &&
-      (date.getTime() - firstPaymentDate.getTime()) % (paymentIntervalDays * DAY_MS) === 0;
-    const modeledBuyback = !isHistorical && isPaymentDate ? dailyYield * paymentIntervalDays : 0;
+    const isDistributionWindow = date >= firstPaymentDate && paymentNumber >= 0;
+    // Each completed 30-day accrual batch is spread uniformly across the
+    // following 30 days: batch / 30 = dailyYield. This removes artificial
+    // monthly spikes while preserving the same total annualized flow.
+    const modeledBuyback = !isHistorical && isDistributionWindow ? dailyYield : 0;
     const revenue = historical?.buybackRevenue ?? modeledBuyback;
 
     if (Number.isFinite(revenue) && revenue > 0) {
