@@ -29,7 +29,7 @@ The balance proxy uses the two Coinbase activation addresses published by Coinba
 
 It is explicitly provisional: it is not yet the final AQAv2 eligible-balance formula.
 
-The model starts distributing the first 30-day batch on 2026-10-03 and spreads each batch evenly across the following 30 days (`batch / 30`). This avoids an artificial monthly jump while preserving the same total flow. It extends the chart one year forward while holding current HYPE price and supply flat. Change the inputs to test different TVL, yield, share, or payment timing.
+The model starts distributing the first 30-day batch on 2026-10-03 and spreads each batch evenly across the following 30 days (`batch / 30`). The AQAv2 flow is added on top of the latest base-revenue EMA, so the adjusted revenue rises and SWPE falls when the new flow starts. For historical alignment, CoinGecko daily prices are mapped to the first quote of the following UTC day; this avoids pairing a completed day's revenue with that day's stale 00:00 price. The scenario extends the chart one year forward while holding current HYPE price and supply flat. Change the inputs to test different TVL, yield, share, or payment timing.
 
 Reference: [Hyperliquid Aligned Quote Assets](https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/aligned-quote-assets), [Circle on USDC and Hyperliquid](https://www.circle.com/blog/circle-expands-support-for-usdc-on-hyperliquid).
 

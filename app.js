@@ -401,7 +401,12 @@ function buildAdjustedProjection(series, config) {
     // following 30 days: batch / 30 = dailyYield. This removes artificial
     // monthly spikes while preserving the same total annualized flow.
     const modeledBuyback = !isHistorical && isDistributionWindow ? dailyYield : 0;
-    const revenue = historical?.buybackRevenue ?? modeledBuyback;
+    // Keep the observed Hyperliquid revenue stream as-is. Beyond the
+    // observed history, hold its latest 30d-EMA level as the baseline and
+    // add the AQAv2 daily distribution on top. Replacing the baseline with
+    // the smaller AQAv2-only amount made revenue (and therefore SWPE) move
+    // in the wrong direction after the first payment.
+    const revenue = historical?.buybackRevenue ?? (current.revenueEma30 + modeledBuyback);
 
     if (Number.isFinite(revenue) && revenue > 0) {
       ema = (revenue * alpha) + (ema * (1 - alpha));
@@ -1632,16 +1637,17 @@ function applyHistoricalMarketChart(payload) {
   const prices = Array.isArray(payload.prices) ? payload.prices : [];
   const marketCaps = Array.isArray(payload.market_caps) ? payload.market_caps : [];
 
-  historicalPriceMap = new Map(
-    prices
-      .map(([timestamp, price]) => [toDateKey(new Date(timestamp)), Number(price)])
-      .filter(([, price]) => Number.isFinite(price))
-  );
+  // CoinGecko's daily market_chart points are timestamped at the start of
+  // the UTC day, while DefiLlama labels daily revenue by the completed day.
+  // Align each revenue date with the first quote of the following UTC day.
+  // This prevents an event-day volume/revenue spike from being paired with
+  // the stale price from 00:00 at the start of that same day.
+  historicalPriceMap = buildNextUtcDayAlignedMap(prices);
 
+  const alignedMarketCaps = buildNextUtcDayAlignedMap(marketCaps);
   historicalCirculatingMap = new Map(
-    marketCaps
-      .map(([timestamp, marketCap]) => {
-        const dateKey = toDateKey(new Date(timestamp));
+    [...alignedMarketCaps.entries()]
+      .map(([dateKey, marketCap]) => {
         const price = historicalPriceMap.get(dateKey);
         const circulating = Number.isFinite(price) && price > 0
           ? Number(marketCap) / price
@@ -1650,6 +1656,30 @@ function applyHistoricalMarketChart(payload) {
       })
       .filter(([, circulating]) => Number.isFinite(circulating))
   );
+}
+
+function buildNextUtcDayAlignedMap(points) {
+  const firstPointByDate = new Map();
+  for (const [timestamp, value] of points) {
+    const date = new Date(timestamp);
+    const numericValue = Number(value);
+    if (Number.isNaN(date.getTime()) || !Number.isFinite(numericValue)) {
+      continue;
+    }
+
+    const dateKey = toDateKey(date);
+    const existing = firstPointByDate.get(dateKey);
+    if (!existing || date.getTime() < existing.timestamp) {
+      firstPointByDate.set(dateKey, { timestamp: date.getTime(), value: numericValue });
+    }
+  }
+
+  const aligned = new Map();
+  for (const point of firstPointByDate.values()) {
+    const completedDate = new Date(point.timestamp - DAY_MS);
+    aligned.set(toDateKey(completedDate), point.value);
+  }
+  return aligned;
 }
 
 function updateLiveStakingAdjustment() {

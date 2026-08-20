@@ -224,7 +224,7 @@
           <li><strong>Buyback revenue</strong> uses DefiLlama daily holders revenue for the live series, then falls back to CSV <code>buybacks</code>, <code>buyback_fee_allocation</code>, or <code>revenue</code>.</li>
           <li><strong>SWPE</strong> uses 30d EMA daily revenue annualized by multiplying by 365.</li>
           <li><strong>Mean SWPE</strong> is the selected timeframe average of SWPE shown as a flat reference line.</li>
-          <li><strong>AQAv2-adjusted scenario</strong> uses a live provisional Coinbase-address USDC balance proxy (HyperEVM ERC-20 plus HyperCore spot USDC), then applies daily balance x reserve yield x approximately 90% protocol share after the 2026-08-26 activation date. The proxy is not the final eligible-balance formula. Each completed 30-day cash batch is modeled as batch / 30 per day beginning on the reported 2026-10-03 first-payment date, with price and supply held flat beyond the observed series.</li>
+          <li><strong>AQAv2-adjusted scenario</strong> uses a live provisional Coinbase-address USDC balance proxy (HyperEVM ERC-20 plus HyperCore spot USDC), then applies daily balance x reserve yield x approximately 90% protocol share after the 2026-08-26 activation date. The proxy is not the final eligible-balance formula. Each completed 30-day cash batch is modeled as batch / 30 per day beginning on the reported 2026-10-03 first-payment date, added on top of the latest base revenue EMA; this makes revenue rise and SWPE fall when AQAv2 starts. Daily CoinGecko prices are aligned to the first quote of the following UTC day so completed-day revenue is not paired with a stale 00:00 price.</li>
         </ul>
       </article>
 
